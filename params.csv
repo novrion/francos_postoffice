@@ -1,0 +1,2 @@
+open,close,customer_spawn_probability,robbery_probability,robbery_success_rate,robbery_customer_spawn_probability_boost,robbery_customer_spawn_probability_drop,minutes_to_complete_task
+09:00,18:00,0.2,0.001,0.3,0.3,0.15,2
