@@ -232,7 +232,7 @@ class GUI:
 
 
 def main():
-    gui = GUI(1000, 1000)
+    gui = GUI(1200, 800)
     postoffice = PostOffice()
     gui.run(postoffice)
 
