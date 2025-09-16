@@ -157,30 +157,28 @@ class PostOffice:
 
         return True
 
-def draw_box(scr, sy, sx, ex, ey=None, text=None, title=None) -> tuple:
+def draw_box(scr, sy, sx, ey, ex, text=None, title=None):
     # Draws a box with an optional title and text inside on scr 
-    # Takes the screen, title, top left y pos, top left x pos, bottom right x pos, optional bottom right y pos and optional text args
-    # Returns bottom y pos
+    # Takes the screen, top left y pos, top left x pos, bottom right y pos, bottom right x pos and optional text and title args
 
-    # Draw box and optional wrapped text
+    # Draw box
+    rectangle(scr, sy, sx, ey, ex)
+
+    # Text
     w = ex - sx - 4
     if text:
         lines = textwrap.wrap(text, width=w+1)
         for i in range(len(lines)):
+            if sy+2+i >= ey:
+                break
             scr.addstr(sy+2+i, sx+2, lines[i])
-        rectangle(scr, sy, sx, sy + len(lines) + 3, ex)
-    else:
-        rectangle(scr, sy, sx, ey, ex)
-
 
     # Title
     if title:
         title = f"  {title}  "
         scr.addstr(sy, (ex + sx - len(title)) // 2, title)
 
-    return ey if ey else sy + len(lines) + 3
-
-def select_parameters(scr, postoffice, initialised, cycle_idx):
+def select_parameters(scr, postoffice, initialised, cycle_idx, key):
     parameter_names = [
         "open",
         "close",
@@ -207,32 +205,35 @@ def select_parameters(scr, postoffice, initialised, cycle_idx):
         postoffice.robbery_spawn_prob_adj_coefficient,
     ]
 
-    cycle_idx = max(0, cycle_idx)
-    cycle_idx = min(len(parameter_names), cycle_idx)
+    cycle_idx %= (len(parameters) + 1)
+
+    height, width = scr.getmaxyx()
+    ey_title = 4
+    ey_instructions = ey_title+1 + 11
+    ey_params = height-2
 
     # Initialisation
     if not initialised:
         initialised = True
         scr.clear()
-        height, width = scr.getmaxyx()
 
         # Title
         text = "FRANCO'S POST OFFICE"
         sx = (width-1 -len(text)) // 2 - 2
         ex = sx + len(text) + 3
-        ey_title = draw_box(scr, 0, sx, ex, text=text)
+        draw_box(scr, 0, sx, ey_title, ex, text=text)
 
         # Instructions
         instructions = "Franco's Post Office simulates Madame Franco's post office. Every minute the store is open a customer may enter. Every customer has a randomised number of tasks that he or she needs to complete. If there are no other customers in the store Franco will get to work on the new customer's tasks right away. Otherwise the customer enters the queue. When Franco has completed all of a customer's tasks the customer leaves. Rarely the post office is robbed. Franco usually manages to fight off the robbers with her black belt in karate. Then the post office gets a PR boost. This increases the probability that customers visit her post office. Unfortunately, sometimes the robbers succeed. This decreases the probability that customers enter the post office. Adjust the parameters of the simulation and click PLAY to start the simulation. Then step through the simulation by pressing the SPACE key. At the end the statistics of the simulation will be summarised."
-        ey_instructions = draw_box(scr, ey_title + 1, 0, width-1, text=instructions, title="Instructions")
+        draw_box(scr, ey_title + 1, 0, ey_instructions, width-1, text=instructions, title="Instructions")
 
         # Parameters
-        ey_params = draw_box(scr, ey_instructions + 2, 0, width - 1, ey=height-2, title="Parameters")
+        draw_box(scr, ey_instructions + 2, 0, ey_params, width-1, title="Parameters")
 
         text = "Cycle: <TAB> | Select: <ENTER>"
         scr.addstr(ey_instructions +2 +1, ((width - len(text)) // 2), text)
 
-        cycle_idx = 0 
+        cycle_idx = 0
 
     sy = ey_instructions + 3
     x = 2
@@ -244,11 +245,14 @@ def select_parameters(scr, postoffice, initialised, cycle_idx):
 
     text = "Start Simulation"
     if cycle_idx == len(parameter_names):
-        scr.addstr(ey_params - 2, width-3 -len(text), text)
+        pass
+        #scr.addstr(ey_params - 2, width-3 -len(text), text)
     else:
         scr.addstr(ey_params - 2, width-3 -len(text), text)
 
-    scr.addstr(ey_instructions + 20, 50, f"{cycle_idx}")
+    scr.addstr(ey_instructions + 10, 50, f"{cycle_idx}")
+
+    return cycle_idx
 
 def run_gui(stdscr):
     postoffice = PostOffice()
@@ -261,12 +265,14 @@ def run_gui(stdscr):
 
         if stage == 0:
 
-            if key == curses.KEY_DOWN:
-                cycled_idx += 1
-            elif key == curses.KEY_UP:
-                cycled_idx -= 1
+            if key == "KEY_DOWN":
+                cycle_idx += 1
+            elif key == "KEY_UP":
+                cycle_idx -= 1
 
-            if not select_parameters(stdscr, postoffice, initialised, cycle_idx):
+            cycle_idx = select_parameters(stdscr, postoffice, initialised, cycle_idx, key)
+            initialised = True 
+            if cycle_idx == -1:
                 # Parameter selection complete
                 stage += 1
                 initialised = False
@@ -288,7 +294,7 @@ def run_gui(stdscr):
         if key != None:
             stdscr.refresh()
             key = None
-        
+
         key = stdscr.getkey()
 
 
