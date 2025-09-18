@@ -435,10 +435,22 @@ def run_gui(stdscr):
     postoffice = PostOffice()
     stage = 0
     initialised = False
+    warning = False
     key = None
     cycle_idx = 0 # For parameter selection
 
     while stage <= 2:
+        height, width = stdscr.getmaxyx()
+        if height < 30 or width < 80:
+            if warning == False:
+                stdscr.clear()
+                stdscr.addstr(0, 0, "This application requires a terminal window that is at least 30x80")
+                stdscr.refresh()
+                warning = True
+                initialised = False
+            continue
+        else:
+            warning = False
 
         if key == "q":
             return
