@@ -108,12 +108,12 @@ class PostOffice:
 
         if param_name in ["open", "close"]:
             try:
-                time_int = time_int(param)
-                if time_int < 0:
+                t = time_int(param)
+                if t < 0:
                     return (False, f"{param_name} should be 24h format 'xx:yy'")
                 return (True, "")
             except ValueError as err:
-                return (False, err)
+                return (False, f"{param_name} should be 24h format 'xx:yy'")
 
         elif param_name in ["spawn_prob", "robbery_prob", "robbery_success_prob", "robbery_kill_prob", "robbery_spawn_prob_boost", "robbery_spawn_prob_drop"]:
             try:
@@ -302,35 +302,35 @@ def modify_param(scr, postoffice, param_name):
         if key == "\n":
 
             # Check if input is valid parameter
-            valid, err = PostOffice.assert_valid_param(param, param_name)
+            valid, err_str = PostOffice.assert_valid_param(param, param_name)
             if valid:
                 break
 
             # Write error message
             param = ""
-            win.addstr(1, (width - len(text)) // 2, err)
+            win.addstr(1, (width - len(err_str)) // 2, err_str)
             continue
 
         # Input new character
-        if key.isalpha():
+        if key.isalpha() or key.isdigit() or key == ':':
             scr.addstr(28, 55, f"{ord(key)}")
             scr.refresh()
             if len(param) < width-2:
                 param += key
-                win.addstr(1, 1, " " * (width-2))
-                win.addstr(1, (width - len(param)) // 2, param)
+                win.addstr(2, 1, " " * (width-2))
+                win.addstr(2, (width - len(param)) // 2, param)
 
         # Backspace
         if ord(key) == 127:
             if len(param) > 0:
-                param = param[-1:]
-                win.addstr(1, 1, " " * (width-2))
-                win.addstr(1, (width - len(param)) // 2, param)
+                param = param[:-1]
+                win.addstr(2, 1, " " * (width-2))
+                win.addstr(2, (width - len(param)) // 2, param)
 
     if param_name == "open":
-        postoffice.open = int(param)
+        postoffice.open = time_int(param)
     elif param_name == "close":
-        postoffice.close = int(param)
+        postoffice.close = time_int(param)
     elif param_name == "spawn_prob":
         postoffice.spawn_prob = float(param)
     elif param_name == "min_per_task":
