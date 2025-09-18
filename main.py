@@ -1,5 +1,6 @@
 import random
 import math
+import time
 import textwrap
 import curses
 from curses import wrapper
@@ -13,7 +14,7 @@ def time_str(time_int: int):
     hours = time_int // 60
     minutes = time_int % 60
     formatted_minutes = minutes if minutes >= 10 else f"0{minutes}"
-    return f"{hours}:{minutes}"
+    return f"{hours}:{formatted_minutes}"
 
 def time_int(time_str: str):
     parts = time_str.strip().split(':')
@@ -76,16 +77,16 @@ class PostOffice:
 
     def get_params(self):
         return [
-            postoffice.open,
-            postoffice.close,
-            postoffice.spawn_prob,
-            postoffice.min_per_task,
-            postoffice.robbery_prob,
-            postoffice.robbery_success_prob,
-            postoffice.robbery_kill_prob,
-            postoffice.robbery_spawn_prob_boost,
-            postoffice.robbery_spawn_prob_drop,
-            postoffice.robbery_spawn_prob_adj_coefficient,
+            self.open,
+            self.close,
+            self.spawn_prob,
+            self.min_per_task,
+            self.robbery_prob,
+            self.robbery_success_prob,
+            self.robbery_kill_prob,
+            self.robbery_spawn_prob_boost,
+            self.robbery_spawn_prob_drop,
+            self.robbery_spawn_prob_adj_coefficient,
         ]
 
     @staticmethod
@@ -290,42 +291,42 @@ def draw_box(scr, sy, sx, ey, ex, text=None, title=None):
 def draw_quit_note(scr):
     scr.addstr(0, 0, "Type Q to QUIT")
 
-def modify_param(scr, postoffice, param_name):
-    height, width = scr.getmaxyx()
-    win = curses.newwin(5, 40, height // 2, width // 2)
-    height, width = win.getmaxyx()
-    draw_box(win, 0, 0, height-2, width-1, title="Input")
-
+def modify_param(scr, y, x, postoffice, param_name, original_param_value):
     param = ""
     while True:
-        key = win.getkey()
+        key = scr.getkey()
         if key == "\n":
 
             # Check if input is valid parameter
             valid, err_str = PostOffice.assert_valid_param(param, param_name)
             if valid:
+                scr.addstr(y, x, param)
                 break
 
             # Write error message
-            param = ""
-            win.addstr(1, (width - len(err_str)) // 2, err_str)
-            continue
-
-        # Input new character
-        if key.isalpha() or key.isdigit() or key == ':':
-            scr.addstr(28, 55, f"{ord(key)}")
+            scr.addstr(y, x, f"{original_param_value} ({err_str})")
             scr.refresh()
-            if len(param) < width-2:
-                param += key
-                win.addstr(2, 1, " " * (width-2))
-                win.addstr(2, (width - len(param)) // 2, param)
+            time.sleep(3)
+            return None
+
+        # Exit
+        if key == "KEY_ESCAPE":
+            return None
 
         # Backspace
-        if ord(key) == 127:
+        elif key == "KEY_BACKSPACE": # ord(key) == 127
             if len(param) > 0:
                 param = param[:-1]
-                win.addstr(2, 1, " " * (width-2))
-                win.addstr(2, (width - len(param)) // 2, param)
+                scr.addstr(y, x, " " * 40)
+                scr.addstr(y, x, param)
+
+        # Input new character
+        elif key.isalpha() or key.isdigit() or key in [':', '.']:
+            #scr.refresh()
+            if len(param) < 10:
+                param += key
+                scr.addstr(y, x, " " * 40)
+                scr.addstr(y, x, param)
 
     if param_name == "open":
         postoffice.open = time_int(param)
@@ -348,34 +349,10 @@ def modify_param(scr, postoffice, param_name):
     elif param_name == "robbery_spawn_prob_adj_coefficient":
         postoffice.robbery_spawn_prob_adj_coefficient = float(param)
 
+    return param
+
 def select_parameters(scr, postoffice, initialised, cycle_idx, key):
-    parameter_names = [
-        "open",
-        "close",
-        "spawn_prob",
-        "min_per_task",
-        "robbery_prob",
-        "robbery_success_prob",
-        "robbery_kill_prob",
-        "robbery_spawn_prob_boost",
-        "robbery_spawn_prob_drop",
-        "robbery_spawn_prob_adj_coefficient"
-    ]
-
-    parameters = [
-        postoffice.open,
-        postoffice.close,
-        postoffice.spawn_prob,
-        postoffice.min_per_task,
-        postoffice.robbery_prob,
-        postoffice.robbery_success_prob,
-        postoffice.robbery_kill_prob,
-        postoffice.robbery_spawn_prob_boost,
-        postoffice.robbery_spawn_prob_drop,
-        postoffice.robbery_spawn_prob_adj_coefficient,
-    ]
-
-    cycle_idx %= (len(parameters) + 1)
+    cycle_idx %= (len(postoffice.get_params()) + 1)
 
     height, width = scr.getmaxyx()
     ey_title = 4
@@ -410,20 +387,24 @@ def select_parameters(scr, postoffice, initialised, cycle_idx, key):
 
         scr.refresh()
 
-    sy = ey_instructions + 3
+    sy = ey_instructions + 5
     x = 2
-    for i in range(len(parameter_names)):
+    for i in range(len(PostOffice.get_param_names())):
+        param_name_str = f"{PostOffice.get_param_names()[i]}: "
+        param_str = f"{time_str(postoffice.get_params()[i]) if i < 2 else postoffice.get_params()[i]}"
         if i == cycle_idx:
-            scr.addstr(sy + i, x, f"{parameter_names[i]}: {parameters[i]}", curses.color_pair(1))
+            scr.addstr(sy + i, x, param_name_str + param_str, curses.color_pair(1))
             if key == " ":
-                new_val = modify_param(scr, postoffice, parameter_names[i])
+                scr.addstr(sy + i, x, param_name_str + " " * 20)
+                scr.move(sy + i, x + len(param_name_str))
+                new_val = modify_param(scr, sy+i, x+len(param_name_str), postoffice, PostOffice.get_param_names()[i], param_str)
                 scr.addstr(sy + i, x, " " * (width - 5))
-                scr.addstr(sy + i, x, f"{parameter_names[i]}: {new_val}", curses.color_pair(1))
+                scr.addstr(sy + i, x, f"{PostOffice.get_param_names()[i]}: {new_val if new_val != None else param_str}", curses.color_pair(1))
         else:
-            scr.addstr(sy + i, x, f"{parameter_names[i]}: {parameters[i]}")
+            scr.addstr(sy + i, x, param_name_str + param_str)
 
     text = "Start Simulation"
-    if cycle_idx == len(parameter_names):
+    if cycle_idx == len(PostOffice.get_param_names()):
         scr.addstr(ey_params - 2, width-3 -len(text), text, curses.color_pair(1))
         if key == " ":
             return -1
@@ -443,7 +424,8 @@ def show_statistics(scr, postoffice):
     scr.addstr(4, 4, "End Of Simulation Statistics")
     scr.addstr(6, 4, f"Number of customers: {postoffice.n_customers}")
     scr.addstr(7, 4, f"Total customer wait time: {postoffice.tot_wait_time} min")
-    scr.addstr(8, 4, f"Average wait time per customer: {round(postoffice.tot_wait_time / postoffice.n_customers, 2)} min")
+    if postoffice.n_customers > 0:
+        scr.addstr(8, 4, f"Average wait time per customer: {round(postoffice.tot_wait_time / postoffice.n_customers, 2)} min")
 
     scr.refresh()
 
