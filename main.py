@@ -6,6 +6,9 @@ import curses
 from curses.textpad import rectangle
 
 def time_str(time_int: int):
+    # Takes time represented in minutes as an integer > 0
+    # Returns the time as a string in 24h format (xx:yy) where 0 <= xx <= 23 and 0 <= yy <= 59
+
     if time_int < 0:
         raise ValueError("Invalid time_int arg in time_str(). Should be an integer >= 0.")
     for i in range(time_int // (24 * 60)):
@@ -16,6 +19,9 @@ def time_str(time_int: int):
     return f"{hours}:{formatted_minutes}"
 
 def time_int(time_str: str):
+    # Takes time represented as a string in 24h format (xx:yy) where 0 <= xx <= 23 and 0 <= yy <= 59
+    # Returns time represented in minutes as an integer > 0
+    
     parts = time_str.strip().split(':')
     if len(parts) != 2:
         raise ValueError("Invalid time_str arg in time_int(). Should be formatted xx:yy (0 <= xx <= 23, 0 <= yy <= 59)")
@@ -31,20 +37,36 @@ def time_int(time_str: str):
 
 
 class Customer:
+    # A class containing the specification of a customer
+    # Each customer has an identification, a certain number of tasks it needs completed, an entry time, and an exit time
+    # Used heavily in simulation
+    
     def __init__(self, id, time):
+        # Takes an id and the current time
+        # Constructs a Customer object
+
         self.id = id
         self.n_tasks = self.get_random_n_tasks()
         self.entry_time = time
         self.exit_time = None
 
     def set_exit_time(self, time, min_per_task):
+        # Takes the current time and the time it takes to complete each task
+        # Sets the time the customer should leave the post office
+
         self.exit_time = time + self.n_tasks * min_per_task
 
     def get_wait_time(self, time):
+        # Takes the current time
+        # Returns the time the customer has waited in the post office
+
         return time - self.entry_time
 
     @staticmethod
     def get_random_n_tasks():
+        # Randomises the number of tasks the customer needs help completing
+        # 50% for 1 task, 25% for 2 tasks, 12.5% for 3 tasks...
+        
         ret = 1
         while True:
             if random.random() <= 0.5:
@@ -55,6 +77,10 @@ class Customer:
 
 
 class PostOffice:
+    # A class containing the specifications of a post office
+    # This is the main class used in simulation
+    # Contains parameters (specified in __init__()) that specify simulation
+
     def __init__(self):
         self.queue = [] # The current queue of customers
         self.time = 0 # Time represented as an integer (minutes): 0 <= x < 24 * 60
@@ -79,12 +105,23 @@ class PostOffice:
         self.robbery_spawn_prob_adj_coefficient = 10 # Coefficient to determine the longevity of adjusted spawn probability after a robbery
 
     def log(self, text):
+        # Takes a string of text and saves it to the PostOffice's logs list for display in the TUI
+
         self.logs.append(text.strip())
 
     def should_do_robbery(self):
+        # Determines if a robbery should occur now
+        # Returns True or False
+
         return self.time < self.close and random.random() <= self.robbery_prob
 
     def do_robbery(self):
+        # Simulates a robbery
+        # Calculates the number of customers are killed by the robbers
+        # Before clearing the queue, wait time is added to total wait time
+        # robbery_succeeded is randomised and robbery_time is updated to now
+        # What occurs is logged
+
         n_kills = 0
         for customer in self.queue:
             self.tot_wait_time += customer.get_wait_time(self.time)
@@ -104,6 +141,14 @@ class PostOffice:
             self.log("Madame Franco, who has a black belt in karate, tries to fight off the robber, and succeeds!")
 
     def should_spawn_customer(self):
+        # Determines if a customer should spawn now
+        # Randomises based on the spawn_prob parameter and based on if a robbery has recently occurred
+        # the final spawn probability is adj * e^(-t/co)
+        # where adj is the maximum boost or drop in spawn probability,
+        # t is the time since the last robbery,
+        # and co is a coefficient to determine how quickly the spawn probability effects of the robbery subsides
+        # Returns True or False
+
         if self.time >= self.close:
             return False
         
@@ -116,6 +161,11 @@ class PostOffice:
         return random.random() <= spawn_prob
 
     def spawn_customer(self):
+        # Spawns a customer
+        # Updates the total number of customers, and adds a new customer to the queue
+        # If the queue was empty, the customer's exit time is determined
+        # The events are logged
+
         self.n_customers += 1
         new_customer = Customer(self.n_customers, self.time)
         if not self.queue:
@@ -126,9 +176,17 @@ class PostOffice:
         self.queue.append(new_customer)
 
     def should_customer_leave(self):
+        # Determines if the customer in front of the queue should leave the post office
+        # Returns true or false
+        
         return self.queue and self.queue[0].exit_time == self.time
 
     def customer_leaves(self):
+        # A customer leaves
+        # total wait time is updated
+        # the customer in front of the queue is removed from the queue
+        # The events are logged
+
         leaving_customer = self.queue.pop(0)
         self.tot_wait_time += leaving_customer.get_wait_time(self.time)
         if self.queue:
@@ -138,11 +196,14 @@ class PostOffice:
             self.log(f"{time_str(self.time)} Customer {leaving_customer.id} leaves")
 
     def init_simulation(self):
+        # Initialises the simulation
+        # The current time is set to the opening time
+
         self.time = self.open
 
     def simulate(self):
-        # Simulates until something happens
-        # Returns False when siulation is complete, else True
+        # Simulates the post office until something happens
+        # Returns False when simulation is complete, else True
 
         update = False
         while not update:
@@ -182,6 +243,9 @@ class PostOffice:
         return True
 
     def update_param(self, param_name, new_val):
+        # Takes a new parameter value and the parameter's name as a string
+        # Updates the corresponding parameter with the new value
+
         if param_name == "open":
             self.open = time_int(new_val)
         elif param_name == "close":
@@ -204,6 +268,8 @@ class PostOffice:
             self.robbery_spawn_prob_adj_coefficient = float(new_val)
 
     def get_params(self):
+        # Returns a list of the current parameter values
+
         return [
             self.open,
             self.close,
@@ -219,6 +285,8 @@ class PostOffice:
 
     @staticmethod
     def get_param_names():
+        # Returns a list of the parameter names
+
         return [
             "open",
             "close",
@@ -234,6 +302,11 @@ class PostOffice:
 
     @staticmethod
     def assert_valid_param(param, param_name):
+        # Takes a user's input value for a parameter and the parameter's name
+        # Returns a tuple (bool, str) where bool is False when the user input is invalid, else True
+        # str is the error message when bool is False
+        # Each parameter has its own requirements for validity
+
         valid = (True, "")
 
         if param_name in ["open", "close"]:
@@ -283,7 +356,13 @@ class PostOffice:
         return False
 
 class GUI:
+    # A class that wraps the Curses TUI over the PostOffice class
+    # Used to create a user interface for the simulation logic of the PostOffice class
+    # Contains a curses screen variable (scr) to manipulate the UI, a key (the last keyboard input of the user), and fixed helper variables specifying coordinates of the UI
+
     def __init__(self, scr):
+        # Takes a Curses screen object and constructs a GUI object
+
         self.scr = scr # Curses screen
         self.key = None # Current user input
 
@@ -291,7 +370,9 @@ class GUI:
 
     def draw_box(self, uly, ulx, dry, drx, title=None, text=None):
         # Takes uly (up left y), ulx (up left x), dry (down right y), drx (down right x) coordinates
-        # and draws a box with optional title and text
+        # (these specify the upper left corner and bottom right corner of the box)
+        # and draws a box to scr with optional title and text
+        # Text is wrapped and cut off if it exceeds the box limits
 
         rectangle(self.scr, uly, ulx, dry, drx)
 
@@ -308,9 +389,15 @@ class GUI:
             self.scr.addstr(uly, (drx + ulx - len(title)) // 2, title)
 
     def draw_quit_msg(self):
+        # Draws a quit message to the top left corner of the scr object
+
         self.scr.addstr(0, 0, "Press Q to EXIT")
 
     def init_select_params(self):
+        # Initialises the parameter selection UI
+        # Draws everything except the options selectable by the user (draws everything static)
+        # Refreshes the screen finally
+
         h, w = self.scr.getmaxyx()
 
         # Instructions
@@ -327,6 +414,13 @@ class GUI:
         self.scr.refresh()
 
     def modify_param(self, y, x, original_param, param_name):
+        # Takes the y and x coordinate of a parameter value in the parameter selection UI
+        # and the original parameter value and name
+        # Takes user input continuously until the user enters <SPACE> or submits a valid parameter input with the carriage return
+        # On submission, the entered parameter input is determined valid or invalid
+        # If valid, the parameter is returned, else the loop continues
+        # If <SPACE> is pressed, None is returned, signaling no new parameter modification
+
         param = ""
 
         while True:
@@ -339,9 +433,14 @@ class GUI:
                 valid, err_str = PostOffice.assert_valid_param(param, param_name)
                 if valid:
                     self.scr.addstr(y, x, " " * 40)
+
+                    # "Normalise" time, i.e 05:05 -> 5:05
+                    if param_name in ["open", "close"]:
+                        param = time_str(time_int(param))
+
                     return param
 
-                # Write error message
+                # Write error message and return None
                 self.scr.addstr(y, x, " " * 40)
                 self.scr.addstr(y, x, f"{original_param} ({err_str})")
                 return None
@@ -366,6 +465,13 @@ class GUI:
                     self.scr.addstr(y, x, param) 
 
     def select_params(self, select_idx, postoffice):
+        # The main update function of the parameter selection UI
+        # Takes the current selection index of the menu and a PostOffice object
+        # and draws the selectable parameters and the "START SIMULATION" selection
+        # If "START SIMULATION" is slelected True is returned, else False is returned
+        # If a parameter is selected, the modify_param() and update_param() functions handle
+        # taking user input and updating the parameter, ensuring user input is valid
+
         param_names = PostOffice.get_param_names()
         uy = self.dy_instructions+5
         x = 2
@@ -403,6 +509,10 @@ class GUI:
         return False
 
     def init_simulation(self, postoffice):
+        # Takes a PostOffice object and initialises simulation stage of the UI and the PostOffice simulation
+        # Initialising the UI contains drawing all static text of the UI
+        # Finally refreshes the screen to display the new UI
+
         postoffice.init_simulation()
 
         h, w = self.scr.getmaxyx()
@@ -417,6 +527,12 @@ class GUI:
         self.scr.refresh()
 
     def simulate(self, postoffice):
+        # The main simulation function of the simulation stage UI
+        # Takes a PostOffice object and simulates, writing all logs from the simulation to the screen
+        # Simulation stops at every minute new logs are written
+        # Simulation steps forward from the user entering the <SPACE> key
+        # If the simulation is complete, True is returned, else False
+
         end = not postoffice.simulate()
 
         h, w = self.scr.getmaxyx()
@@ -438,6 +554,10 @@ class GUI:
         return end
 
     def show_statistics(self, postoffice):
+        # Draws the static statistics UI screen with a summary of the simulation's statistics
+        # Takes a PostOffice object and displays its simulation statistics
+        # Finally refreshes scr
+
         h, w = self.scr.getmaxyx()
 
         # Box and quit message
@@ -454,6 +574,10 @@ class GUI:
         self.scr.refresh()
 
     def run(self, postoffice):
+        # The main TUI loop
+        # Takes a PostOffice object and simulates the post office integrated into the Curses TUI
+        # Takes user input to forward the simulation and refreshes the screen when necessary
+
         stage = 0 # Stage of GUI
         select_idx = 0 # Selection index
 
@@ -501,6 +625,12 @@ class GUI:
             self.key = self.scr.getkey()
 
 def run_gui(stdscr):
+    # A secondary wrapper to initialise one GUI and PostOffice object and start simulation
+    # Also initialises another color to be used when drawing text to the parameter selection UI
+    # The secondary wrapper is necessary due to how the Curses library wrapper() behaves
+    # Another option would be to not have a GUI class and directly pass the Curses screen to GUI.run()
+    # and construct the PostOffice inside GUI.run().
+    # But due to the depths of the TUI application, class variables like GUI.key are very convenient
 
     # Initialise color
     curses.init_pair(1, 0, 15)
@@ -511,4 +641,6 @@ def run_gui(stdscr):
     gui.run(postoffice)
 
 if __name__ == "__main__":
+    # Initialises a Curses screen and passes it to run_gui
+
     curses.wrapper(run_gui)
