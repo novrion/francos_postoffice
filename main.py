@@ -64,7 +64,7 @@ class Customer:
 
     @staticmethod
     def get_random_n_tasks():
-        # Randomises the number of tasks the customer needs help completing
+        # Randomises the number of tasks the customer needs to complete
         # 50% for 1 task, 25% for 2 tasks, 12.5% for 3 tasks...
         
         ret = 1
@@ -90,7 +90,7 @@ class PostOffice:
         self.robbery_time = None # Time of last robbery (None if no robbery yet)
         self.robbery_succeeded = None # If the last robbery succeeded (None if no robbery yet)
 
-        self.logs = []
+        self.logs = [] # The logs to display to the user
 
         # Parameters
         self.open = time_int("09:00") # Opening time
