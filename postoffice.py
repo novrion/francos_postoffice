@@ -269,8 +269,8 @@ class PostOffice:
         # Returns a list of the current parameter values
 
         return [
-            self.open,
-            self.close,
+            time_str(self.open),
+            time_str(self.close),
             self.spawn_prob,
             self.min_per_task,
             self.robbery_prob,
