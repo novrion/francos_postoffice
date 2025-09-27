@@ -86,6 +86,7 @@ class PostOffice:
         self.robbery_time = None # Time of last robbery (None if no robbery yet)
         self.robbery_succeeded = None # If the last robbery succeeded (None if no robbery yet)
 
+        self.end = False # If simulation has ended
         self.logs = [] # The logs to display to the user
 
         # Parameters
@@ -208,7 +209,8 @@ class PostOffice:
 
             # End of simulation (past closing and no more customers)
             if self.time > self.close and not self.queue:
-                return False
+                self.end = True
+                break
 
             # Post office opens
             if self.time == self.open:
@@ -224,7 +226,7 @@ class PostOffice:
             if self.should_do_robbery():
                 self.do_robbery()
                 self.time += 1
-                return True
+                break
 
             # New customer
             if self.should_spawn_customer():
@@ -237,8 +239,6 @@ class PostOffice:
                 self.customer_leaves()
 
             self.time += 1
-
-        return True
 
     def update_param(self, param_name, new_val):
         # Takes a new parameter value and the parameter's name as a string

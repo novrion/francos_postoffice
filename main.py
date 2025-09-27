@@ -8,12 +8,17 @@ STAGE_PARAMETER_SELECTION = 0
 STAGE_SIMULATION = 1
 STAGE_STATISTICS = 2
 
-def init_select_parameters(scr):
+def init_select_parameters(scr, init):
     h, w = scr.getmaxyx()
-    scr.clear()
-
     instructions = "Every minute a customer may enter Francos post office with a randomised number of errands. If the queue is empty Madame Franco, who runs the office, will work on the customer's errands right away. Otherwise the customer will enter the queue. When Franco has completed a customer's errands the customer leaves. Sometimes the post office is robbed. Franco tries to fight off the robber with her black belt in karate. Depending on the success of the robbery the post office receives a PR boost or drop (customers are more or less likely to enter). Adjust the parameters and start the simulation using the arrow keys to cycle and SPACE to select. Then step through the simulation using the SPACE key. The statistics of the simulation will be displayed at the end of the simulation."
 
+    # Do not initialise but simulate to return text_end_y
+    if not init:
+        return M+draw_box(scr, 1, 0, h-2, w-1, text=instructions, init=False)
+
+    # Initialise
+    scr.clear()
+ 
     draw_msg(scr, "Press Q to quit")
     text_end_y = draw_box(scr, 1, 0, h-2, w-1, title="FRANCO'S POST OFFICE", text=instructions)
     
@@ -24,8 +29,8 @@ def init_select_parameters(scr):
 
     return text_end_y+M
 
-def select_parameters(scr, key, postoffice, select_idx):
-    text_end_y = init_select_parameters(scr)
+def select_parameters(scr, key, postoffice, select_idx, init):
+    text_end_y = init_select_parameters(scr, init)
     param_names = PostOffice.get_param_names()
     params = postoffice.get_params()
     select_idx %= len(params) + 1
@@ -76,8 +81,14 @@ def select_parameters(scr, key, postoffice, select_idx):
 
     return False
 
-def init_simulate(scr):
+def init_simulate(scr, init):
     h, w = scr.getmaxyx()
+
+    # Don't initialise but simulate to return text_end_y
+    if not init:
+        return M+draw_box(scr, 1, 0, h-2, w-1, init=False)
+
+    # Initialise
     scr.clear()
 
     draw_msg(scr, "Press Q to quit")
@@ -90,14 +101,13 @@ def init_simulate(scr):
     scr.refresh()
     return text_end_y+M
 
-def simulate(scr, key, postoffice):
+def simulate(scr, key, postoffice, init):
     h, w = scr.getmaxyx()
-    text_end_y = init_simulate(scr)
+    text_end_y = init_simulate(scr, init)
 
     # Call simulation logic
-    end = False
     if key == ' ':
-        end = not postoffice.simulate()
+        postoffice.simulate()
 
     # Display logs
     y = text_end_y+M
@@ -109,16 +119,19 @@ def simulate(scr, key, postoffice):
         scr.addstr(y+i, x, logs[i])
 
     # End message
-    if end:
+    if postoffice.end:
         scr.addstr(y+len(logs)+M, x, "End of simulation. Press C to continue...")
         scr.refresh()
-        get_keys(scr, ['c', 'C'])
+        if key in ['c', 'C']:
+            return True
 
     scr.refresh()
+    return False 
 
-    return end
+def statistics(scr, postoffice, init):
+    if not init:
+        return
 
-def statistics(scr, postoffice):
     h, w = scr.getmaxyx()
     scr.clear()
 
@@ -140,6 +153,7 @@ def run_tui(stdscr):
     postoffice = PostOffice()
     last_h, last_w = stdscr.getmaxyx()
     stage = STAGE_PARAMETER_SELECTION
+    init = True
     key = None
     select_idx = 0
 
@@ -153,6 +167,13 @@ def run_tui(stdscr):
         if not assert_scr_size(stdscr, MIN_H, MIN_W):
             continue
 
+        # Check if screen sized changed
+        h, w = stdscr.getmaxyx()
+        screen_changed = (last_h != h or last_w != w)
+        last_h = h
+        last_w = w
+
+
         if stage == STAGE_PARAMETER_SELECTION:
 
             # Cycle menu
@@ -161,17 +182,24 @@ def run_tui(stdscr):
             elif key == "KEY_DOWN":
                 select_idx += 1
 
-            if select_parameters(stdscr, key, postoffice, select_idx):
+            if select_parameters(stdscr, key, postoffice, select_idx, screen_changed or init):
                 stage = STAGE_SIMULATION
+                init = True
                 continue
+            init = False
+
 
         elif stage == STAGE_SIMULATION:
-            if simulate(stdscr, key, postoffice):
+            if simulate(stdscr, key, postoffice, screen_changed or init):
                 stage = STAGE_STATISTICS
+                init = True
                 continue
+            init = False
+
 
         elif stage == STAGE_STATISTICS:
-            statistics(stdscr, postoffice)
+            statistics(stdscr, postoffice, screen_changed or init)
+            init = False
 
 
         # Get key input

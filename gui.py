@@ -13,7 +13,16 @@ def assert_scr_size(scr, min_h, min_w):
         return False
     return True
 
-def draw_box(scr, uly, ulx, dry, drx, title=None, text=None):
+def draw_box(scr, uly, ulx, dry, drx, title=None, text=None, init=True):
+
+    # Simulate the box but don't draw it
+    if not init:
+        if text:
+            lines = textwrap.wrap(text, width=(drx-ulx-M-1))
+            return uly+M+len(lines)
+        return uly+M
+
+    # Actually draw the box
     rectangle(scr, uly, ulx, dry, drx)
 
     if title:
@@ -38,12 +47,6 @@ def draw_error_msg(scr, text):
 
 def draw_msg(scr, text):
     scr.addstr(0, 0, text)
-
-def get_keys(scr, keys):
-    while True:
-        inp = scr.getkey()
-        if inp in keys:
-            return
 
 def take_user_input(scr, y, x, max_len):
     scr.addstr(y, x, ' ' * max_len)
