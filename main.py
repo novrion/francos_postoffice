@@ -1,22 +1,29 @@
-from gui import *
-from postoffice import *
+from tui import * # Useful TUI functions
+from postoffice import * # Franco's Post Office simulation logic
 import curses
 
+# Min and max screen dimensions
 MIN_H = 30
 MIN_W = 100
+
+# Stage indexes
 STAGE_PARAMETER_SELECTION = 0
 STAGE_SIMULATION = 1
 STAGE_STATISTICS = 2
 
 def init_select_parameters(scr, init):
+    # Takes screen and init (if the screen should be (re)drawn)
+    # Draws the static parts of the parameter selection screen if init=True
+    # Returns the y pos where the text of init_select_parameters() stops
+
     h, w = scr.getmaxyx()
     instructions = "Every minute a customer may enter Francos post office with a randomised number of errands. If the queue is empty Madame Franco, who runs the office, will work on the customer's errands right away. Otherwise the customer will enter the queue. When Franco has completed a customer's errands the customer leaves. Sometimes the post office is robbed. Franco tries to fight off the robber with her black belt in karate. Depending on the success of the robbery the post office receives a PR boost or drop (customers are more or less likely to enter). Adjust the parameters and start the simulation using the arrow keys to cycle and SPACE to select. Then step through the simulation using the SPACE key. The statistics of the simulation will be displayed at the end of the simulation."
 
-    # Do not initialise but simulate to return text_end_y
+    # Do not redraw but simulate to return y pos
     if not init:
         return M+draw_box(scr, 1, 0, h-2, w-1, text=instructions, init=False)
 
-    # Initialise
+    # (re)draw
     scr.clear()
  
     draw_msg(scr, "Press Q to quit")
@@ -30,9 +37,19 @@ def init_select_parameters(scr, init):
     return text_end_y+M
 
 def select_parameters(scr, key, postoffice, select_idx, init):
+    # Takes screen, last pressed key, PostOffice, menu selection index, and init (if the sreen should be (re)drawn)
+    # Draws the static and dynamic parts of the parameter selection screen
+    # Allows the user to select menu items and alter parameters
+    # Returns true if simulation should start, else False
+
+    # Draw static parts of screen
     text_end_y = init_select_parameters(scr, init)
+
+    h, w = scr.getmaxyx()
     param_names = PostOffice.get_param_names()
     params = postoffice.get_params()
+    
+    # Normalise selection index
     select_idx %= len(params) + 1
 
     # Unselected parameters
@@ -62,7 +79,7 @@ def select_parameters(scr, key, postoffice, select_idx, init):
 
         # User wants to modify parameter
         if key == ' ':
-            scr.addstr(y, x + len(name) + 1, ' ' * 40)
+            scr.addstr(y, x + len(name) + 1, ' ' * (w-(x+len(name)+5*M)))
             inp = take_user_input(scr, y, x + len(name) + 2, 10)
 
             # No user input
@@ -70,6 +87,7 @@ def select_parameters(scr, key, postoffice, select_idx, init):
                 scr.addstr(y, x, f"{name}: {value}", curses.color_pair(1))
                 return False
 
+            # Assert valid input
             valid, err = PostOffice.assert_valid_param(inp, param_names[select_idx])
             if valid:
                 scr.addstr(y, x, f"{name}: {inp}", curses.color_pair(1))
@@ -77,18 +95,23 @@ def select_parameters(scr, key, postoffice, select_idx, init):
                 return False
 
             # Invalid input
-            scr.addstr(y, x, f"{name}: {value} ({err})", curses.color_pair(1))
+            scr.addstr(y, x, f"{name}: {value}", curses.color_pair(1))
+            scr.addstr(y, x + len(f"{name}: {value}"), f" ({err})")
 
     return False
 
 def init_simulate(scr, init):
+    # Takes screen and init (if the screen should be (re)drawn)
+    # Draws the static parts of the simulation screen if init=True
+    # Returns the y pos where the init_simulate() text stops
+
     h, w = scr.getmaxyx()
 
-    # Don't initialise but simulate to return text_end_y
+    # Don't redraw but simulate to return y pos
     if not init:
         return M+draw_box(scr, 1, 0, h-2, w-1, init=False)
 
-    # Initialise
+    # (re)draw
     scr.clear()
 
     draw_msg(scr, "Press Q to quit")
@@ -102,8 +125,14 @@ def init_simulate(scr, init):
     return text_end_y+M
 
 def simulate(scr, key, postoffice, init):
-    h, w = scr.getmaxyx()
+    # Takes screen, last pressed key, PostOffice and init (if the screen's static parts should be (re)drawn)
+    # Draws the simulation screen and its logs
+    # Returns True if simulation ended else False
+
+    # Initialise static parts of screen
     text_end_y = init_simulate(scr, init)
+
+    h, w = scr.getmaxyx()
 
     # Call simulation logic
     if key == ' ':
@@ -121,14 +150,17 @@ def simulate(scr, key, postoffice, init):
     # End message
     if postoffice.end:
         scr.addstr(y+len(logs)+M, x, "End of simulation. Press C to continue...")
-        scr.refresh()
         if key in ['c', 'C']:
             return True
 
     scr.refresh()
-    return False 
+    return False
 
 def statistics(scr, postoffice, init):
+    # Takes a screen, PostOffice, and init (if the statistics screen should (re)initialise)
+    # (re)draws end of simulation statistics screen if init=True
+
+    # Don't redraw screen
     if not init:
         return
 
@@ -148,14 +180,17 @@ def statistics(scr, postoffice, init):
         scr.addstr(y+M+2, M, f"Average wait time per customer: {round(postoffice.tot_wait_time / postoffice.n_customers, 2)} min")
 
 def run_tui(stdscr):
-    curses.init_pair(1, 0, 15)
-    curses.curs_set(0)
+    # Main event loop
+    # Takes a screen and returns when the program is complete
+ 
+    curses.init_pair(1, 0, 15) # Initialise Curses color
+    curses.curs_set(0) # Hide cursor
     postoffice = PostOffice()
-    last_h, last_w = stdscr.getmaxyx()
+    last_h, last_w = stdscr.getmaxyx() # Last tick's screen dimensions
     stage = STAGE_PARAMETER_SELECTION
-    init = True
-    key = None
-    select_idx = 0
+    init = True # If the screen should initialise (stage hasn't been drawn to screen yet)
+    key = None # Most recently pressed key
+    select_idx = 0 # Selected option index for parameter selection
 
     while True:
 
@@ -208,4 +243,5 @@ def run_tui(stdscr):
         stdscr.refresh()
 
 if __name__ == "__main__":
+    # Curses wrapper initialises screen and passes it to run_tui
     curses.wrapper(run_tui)
