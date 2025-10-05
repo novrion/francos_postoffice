@@ -4,7 +4,7 @@ import curses
 
 # Min and max screen dimensions
 MIN_H = 30
-MIN_W = 100
+MIN_W = 120
 
 # Stage indexes
 STAGE_PARAMETER_SELECTION = 0
@@ -51,16 +51,56 @@ def select_parameters(scr, key, postoffice, select_idx, init):
     
     # Normalise selection index
     select_idx %= len(params) + 1
+    
+    y = text_end_y+M
+    x = M
+
+    # Parameter description
+    text = "Parameter description: "
+    scr.addstr(y, x+len(text), ' ' * (w-(x+len(text)+M)))
+    if select_idx != len(params):
+        param_descriptions = PostOffice.get_param_descriptions()
+        scr.addstr(y, x, f"{text}{param_descriptions[select_idx]}")
+    else:
+        scr.addstr(y, x, text)
 
     # Unselected parameters
+    y += M
     for i in range(len(params)):
         if i == select_idx:
             continue
-        scr.addstr(text_end_y+M+i, M, f"{param_names[i]}: {params[i]}")
+        scr.addstr(y+i, x, f"{param_names[i]}: {params[i]}")
+
+    # Selected parameter
+    if select_idx != len(params):
+        name = param_names[select_idx]
+        value = params[select_idx]
+
+        scr.addstr(y+select_idx, x, f"{name}: {value}", curses.color_pair(1))
+
+        # User wants to modify parameter
+        if key == ' ':
+            scr.addstr(y+select_idx, x + len(name) + 1, ' ' * (w-(x+len(name)+M)))
+            inp = take_user_input(scr, y+select_idx, x + len(name) + 2, 10)
+
+            # No user input
+            if inp == None:
+                scr.addstr(y+select_idx, x, f"{name}: {value}", curses.color_pair(1))
+                return False
+
+            # Assert valid input
+            valid, err = PostOffice.assert_valid_param(inp, param_names[select_idx])
+            if valid:
+                scr.addstr(y+select_idx, x, f"{name}: {inp}", curses.color_pair(1))
+                postoffice.update_param(param_names[select_idx], inp)
+                return False
+
+            # Invalid input
+            scr.addstr(y+select_idx, x, f"{name}: {value}", curses.color_pair(1))
+            scr.addstr(y+select_idx, x + len(f"{name}: {value}"), f" ({err})")
  
-    # Start simulation option
-    y = text_end_y+M+len(params)+1
-    x = M
+    # Start simulation button
+    y += len(params)+1
     text = "START SIMULATION"
     if select_idx == len(params):
         scr.addstr(y, x, text, curses.color_pair(1))
@@ -68,36 +108,7 @@ def select_parameters(scr, key, postoffice, select_idx, init):
             return True
     else:
         scr.addstr(y, x, text)
-
-    # Selected parameter
-    if select_idx != len(params):
-        y = text_end_y+M+select_idx
-        name = param_names[select_idx]
-        value = params[select_idx]
-
-        scr.addstr(y, x, f"{name}: {value}", curses.color_pair(1))
-
-        # User wants to modify parameter
-        if key == ' ':
-            scr.addstr(y, x + len(name) + 1, ' ' * (w-(x+len(name)+5*M)))
-            inp = take_user_input(scr, y, x + len(name) + 2, 10)
-
-            # No user input
-            if inp == None:
-                scr.addstr(y, x, f"{name}: {value}", curses.color_pair(1))
-                return False
-
-            # Assert valid input
-            valid, err = PostOffice.assert_valid_param(inp, param_names[select_idx])
-            if valid:
-                scr.addstr(y, x, f"{name}: {inp}", curses.color_pair(1))
-                postoffice.update_param(param_names[select_idx], inp)
-                return False
-
-            # Invalid input
-            scr.addstr(y, x, f"{name}: {value}", curses.color_pair(1))
-            scr.addstr(y, x + len(f"{name}: {value}"), f" ({err})")
-
+ 
     return False
 
 def init_simulate(scr, init):
@@ -188,7 +199,7 @@ def run_tui(stdscr):
     postoffice = PostOffice()
     last_h, last_w = stdscr.getmaxyx() # Last tick's screen dimensions
     stage = STAGE_PARAMETER_SELECTION
-    init = True # If the screen should initialise (stage hasn't been drawn to screen yet)
+    init = True # If the screen should (re)initialise (stage hasn't been drawn to screen yet or terminal size changed)
     key = None # Most recently pressed key
     select_idx = 0 # Selected option index for parameter selection
 

@@ -299,6 +299,23 @@ class PostOffice:
         ]
 
     @staticmethod
+    def get_param_descriptions():
+        # Returns a list of more descriptions of the parameters
+        
+        return [
+            "Opening time of postoffice",
+            "Closing time of postoffice",
+            "Probability a customer enters each minute",
+            "How many minutes it takes Franco to complete a customer's task",
+            "Probability the postoffice is robbed each minute",
+            "Probability a robbery succeeds",
+            "Probability a customer is killed during robbery",
+            "Fixed increase in probability a customer enters the post office after unsuccessful robbery",
+            "Fixed decrease in probability a customer enters the post office after successful robbery",
+            "Coefficient to decay probability adjustment after robbery (low values decay quicker)"
+        ]
+
+    @staticmethod
     def assert_valid_param(param, param_name):
         # Takes a user's input value for a parameter and the parameter's name
         # Returns a tuple (bool, str) where bool is False when the user input is invalid, else True
